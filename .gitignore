@@ -1,0 +1,5 @@
+# 파이썬 가상환경
+venv/
+
+# OPEN_API_KEY 설정
+.env

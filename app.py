@@ -182,22 +182,15 @@ with st.container():
                 key="select_category"
             )
         else:
-            selected_category = None
+            selected_category = "Resume"
+            # 임시
 
     # 실전 모드에서만 이력서 업로드
     uploaded_resume = None
     if selected_difficulty == "real":
         uploaded_resume = resume_upload_component()
-        if uploaded_resume:
-            st.session_state.resume_text = uploaded_resume
-            st.success("이력서 업로드 완료!")
     else:
         st.session_state.resume_text = ""
-
-    # 업로드된 이력서 보기 (업로드 폼 바로 아래)
-    if st.session_state.resume_text:
-        with st.expander("📄 업로드된 이력서 보기", expanded=False):
-            st.write(st.session_state.resume_text[:1000] + ("..." if len(st.session_state.resume_text) > 1000 else ""))
 
     # 면접 시작/종료 버튼
     col_btn1, col_btn2 = st.columns([1, 1])
@@ -234,7 +227,7 @@ if "messages" not in st.session_state:
 if "current_question" not in st.session_state:
     st.session_state.current_question = None
 
-# --- 면접 시작 로직 ---
+# --- 면접 시작 로직 수정 ---
 if start_interview:
     if selected_difficulty == "real" and not st.session_state.resume_text:
         st.error("실전 모드에서는 이력서를 업로드해주세요.")
@@ -253,6 +246,7 @@ if start_interview:
                     question = response.json()["question_text"]
                     st.session_state.messages = [{"role": "assistant", "content": question}]
                     st.session_state.current_question = question
+                    st.rerun()  # ⭐️ UI 즉시 갱신 추가
         except Exception as e:
             st.error(f"오류: {e}")
 
@@ -266,7 +260,7 @@ if end_interview and st.session_state.messages:
 # --- 챗봇 대화 UI ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.write(msg["content"])
+        st.markdown(msg["content"])  # ⭐️ st.write → st.markdown 변경
 
 # --- 답변 입력 및 "잘 모르겠어요" 버튼 ---
 def process_answer(answer_text):

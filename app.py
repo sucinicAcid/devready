@@ -16,112 +16,6 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
 * { font-family: 'Noto Sans KR', sans-serif; }
-
-.main-title {
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: #1E3A8A;
-    margin-bottom: 0.5rem;
-    text-align: center;
-    padding: 1rem 0 0.5rem 0;
-}
-.subtitle {
-    font-size: 1.1rem;
-    color: #4B5563;
-    margin-bottom: 1.2rem;
-    text-align: center;
-}
-
-.card {
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-    padding: 1.1rem;
-    height: 100%;
-    margin-bottom: 1rem;
-}
-.card-icon {
-    font-size: 2.2rem;
-    margin-bottom: 0.7rem;
-    text-align: center;
-}
-.card-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1E3A8A;
-    margin-bottom: 0.3rem;
-    text-align: center;
-}
-.card-text {
-    color: #4B5563;
-    font-size: 0.93rem;
-    line-height: 1.5;
-}
-
-hr {
-    margin: 1.5rem 0 1rem 0;
-    border: 0;
-    height: 1px;
-    background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));
-}
-
-.settings-container {
-    background-color: #F9FAFB;
-    padding: 1.2rem;
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
-    border: 1px solid #E5E7EB;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.settings-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1E3A8A;
-    margin-bottom: 1rem;
-}
-
-.stSelectbox > div > div {
-    font-size: 1.2rem !important;
-    min-height: 2.7rem !important;
-}
-.stSelectbox > div > div > select {
-    font-size: 1.2rem !important;
-    min-height: 2.7rem !important;
-}
-label {
-    font-size: 1.1rem !important;
-    font-weight: 600;
-}
-
-div[data-testid="stButton"] button {
-    background-color: #1E3A8A;
-    color: white;
-    border-radius: 8px;
-    border: none;
-    padding: 0.6rem 1.1rem;
-    font-weight: 500;
-    font-size: 1.1rem;
-    margin-bottom: 0.5rem;
-    transition: background-color 0.3s;
-}
-div[data-testid="stButton"] button:hover {
-    background-color: #2563EB;
-}
-            
-div[data-testid="stSpinner"] {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-@media (max-width: 900px) {
-    .main-title { font-size: 1.5rem; }
-    .settings-container { padding: 0.8rem; }
-    .card { padding: 0.7rem; }
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -158,7 +52,7 @@ with col3:
 
 st.markdown('<hr>', unsafe_allow_html=True)
 
-# --- 설정 영역 (메인 화면 상단) ---
+# --- 설정 영역 ---
 with st.container():
     st.markdown('<div class="settings-title">면접 설정</div>', unsafe_allow_html=True)
     colA, colB = st.columns(2)
@@ -183,16 +77,13 @@ with st.container():
             )
         else:
             selected_category = "Resume"
-            # 임시
 
-    # 실전 모드에서만 이력서 업로드
     uploaded_resume = None
     if selected_difficulty == "real":
         uploaded_resume = resume_upload_component()
     else:
         st.session_state.resume_text = ""
 
-    # 면접 시작/종료 버튼
     col_btn1, col_btn2 = st.columns([1, 1])
     with col_btn1:
         start_interview = st.button("🟢 면접 시작", use_container_width=True)
@@ -211,13 +102,15 @@ with st.expander("면접 팁", expanded=False):
 
 st.markdown('<hr>', unsafe_allow_html=True)
 
-# --- 인터뷰 대시보드 (챗봇) ---
 st.markdown(
     "<h2 style='text-align: center;'>인터뷰 대시보드</h2>",
     unsafe_allow_html=True
 )
 
-API_URL = "http://localhost:8000"
+API_URL = "https://devview.site"
+
+
+
 
 # --- 세션 상태 관리 ---
 if "resume_text" not in st.session_state:
@@ -226,29 +119,112 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_question" not in st.session_state:
     st.session_state.current_question = None
+if "api_session" not in st.session_state:
+    st.session_state.api_session = None
+if "login_ok" not in st.session_state:
+    st.session_state.login_ok = False
 
-# --- 면접 시작 로직 수정 ---
+
+
+
+# --- 로그인 함수 ---
+def login():
+    login_url = f"{API_URL}/api/v1/login"
+    login_data = {
+        "username": "user123",   # 실제 계정 정보로 변경
+        "password": "password123"
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Origin": "https://devview.site",
+        "Referer": "https://devview.site/"
+    }
+    session = requests.Session()
+    try:
+        resp = session.post(login_url, json=login_data, headers=headers)
+        if resp.ok:
+            st.session_state.api_session = session
+            st.session_state.login_ok = True
+            # 쿠키 확인 (디버깅용, 필요시 주석처리)
+            # st.write("로그인 성공, 세션 쿠키:", session.cookies)
+            return True
+        else:
+            st.session_state.login_ok = False
+            st.error(f"로그인 실패: status={resp.status_code}, body={resp.text}")
+            return False
+    except Exception as e:
+        st.session_state.login_ok = False
+        st.error(f"로그인 오류: {e}")
+        return False
+
+
+
+
+# --- 최초 실행 시 로그인 ---
+if st.session_state.api_session is None or not st.session_state.login_ok:
+    st.info("서버에 로그인 중입니다...")
+    if login():
+        st.success("로그인 성공! 면접을 시작할 수 있습니다.")
+    else:
+        st.stop()
+
+
+
+
+# --- 면접 시작 로직 ---
 if start_interview:
     if selected_difficulty == "real" and not st.session_state.resume_text:
         st.error("실전 모드에서는 이력서를 업로드해주세요.")
     else:
         try:
-            with st.spinner("질문 생성 중..."):
-                response = requests.post(
-                    f"{API_URL}/question",
-                    json={
-                        "resume_text": st.session_state.resume_text if selected_difficulty == "real" else "",
-                        "category": selected_category,
-                        "difficulty": selected_difficulty
-                    }
+            with st.spinner("이력서 등록 중..."):
+                # 1. 이력서 등록
+                resume_payload = {"content": "테스트 이력서"}
+
+
+
+                resume_resp = st.session_state.api_session.post(
+                    f"{API_URL}/api/resumes", json=resume_payload
                 )
-                if response.ok:
-                    question = response.json()["question_text"]
-                    st.session_state.messages = [{"role": "assistant", "content": question}]
-                    st.session_state.current_question = question
-                    st.rerun()  # ⭐️ UI 즉시 갱신 추가
+
+
+
+                if not resume_resp.ok:
+                    st.error(f"이력서 등록 실패: {resume_resp.text}")
+                    st.stop()
+
+
+                resume_id = resume_resp.json()["result"]["data"]["id"]
+                st.session_state.resume_id = resume_id
+
+            with st.spinner("질문(키워드) 생성 중..."):
+                tag_url = f"{API_URL}/api/resumes/{resume_id}/tags"
+                tag_resp = st.session_state.api_session.post(tag_url)
+                print("tag_resp.status_code:", tag_resp.status_code)
+                print("tag_resp.text:", tag_resp.text)
+                if not tag_resp.ok:
+                    st.error(f"질문 생성 실패: {tag_resp.status_code} / {tag_resp.text}")
+                    st.stop()
+                keywords = tag_resp.json()["result"]["data"]["keywords"]
+
+                if keywords:
+                    question = keywords[0].get("detail", "질문 생성 결과가 없습니다.")
+                else:
+                    question = "질문 생성 결과가 없습니다."
+
+                st.session_state.messages = [{"role": "assistant", "content": question}]
+                st.session_state.current_question = question
+                st.rerun()
+
+                st.session_state.messages = [{"role": "assistant", "content": question}]
+                st.session_state.current_question = question
+                st.rerun()
+
         except Exception as e:
             st.error(f"오류: {e}")
+
+
+
 
 # --- 면접 종료 ---
 if end_interview and st.session_state.messages:
@@ -257,10 +233,16 @@ if end_interview and st.session_state.messages:
     st.success("면접이 종료되었습니다.")
     st.rerun()
 
+
+
+
 # --- 챗봇 대화 UI ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])  # ⭐️ st.write → st.markdown 변경
+        st.markdown(msg["content"])
+
+
+
 
 # --- 답변 입력 및 "잘 모르겠어요" 버튼 ---
 def process_answer(answer_text):
@@ -268,26 +250,34 @@ def process_answer(answer_text):
         st.session_state.messages.append({"role": "user", "content": answer_text})
         try:
             with st.spinner("꼬리 질문 생성 중..."):
-                response = requests.post(
+                response = st.session_state.api_session.post(
                     f"{API_URL}/tail-question",
                     json={
-                        "resume_text": st.session_state.resume_text if selected_difficulty == "real" else "",
+                        "content": st.session_state.resume_text if selected_difficulty == "real" else "",
                         "category": selected_category,
                         "difficulty": selected_difficulty,
-                        "chat_history": [m["content"] for m in st.session_state.messages]
+                        "chatHistory": [m["content"] for m in st.session_state.messages]
                     }
                 )
                 if response.ok:
-                    tail_question = response.json()["tail_question_text"]
+                    tail_question = response.json()["tailQuestion"]
                     st.session_state.current_question = tail_question
                     st.session_state.messages.append({"role": "assistant", "content": tail_question})
                     st.rerun()
+                elif response.status_code == 403:
+                    st.error("인증이 만료되었습니다. 다시 로그인합니다.")
+                    login()
+                    st.rerun()
+                else:
+                    st.error(f"꼬리 질문 생성 실패: {response.text}")
         except Exception as e:
             st.error(f"오류: {e}")
             st.rerun()
 
+
+
+
 if st.session_state.messages:
-    # 답변 입력 UI를 항상 챗봇 아래에 고정
     col1, col2 = st.columns([6, 1])
     with col1:
         user_input = st.chat_input("답변을 입력하거나 마이크로 녹음하세요.")
@@ -295,31 +285,34 @@ if st.session_state.messages:
     with col2:
         skip_question = st.button("잘 모르겠어요", use_container_width=True)
 
-    # 음성 입력 처리 (음성 인식 결과가 있을 때만)
     if voice_input:
         process_answer(voice_input)
 
-    # 텍스트 입력 처리
     if user_input:
         process_answer(user_input)
 
-    # "잘 모르겠어요" 버튼 처리
     if skip_question and st.session_state.current_question:
         try:
             with st.spinner("새 질문 생성 중..."):
-                response = requests.post(
+                response = st.session_state.api_session.post(
                     f"{API_URL}/question",
                     json={
-                        "resume_text": st.session_state.resume_text if selected_difficulty == "real" else "",
+                        "resumeText": st.session_state.resume_text if selected_difficulty == "real" else "",
                         "category": selected_category,
                         "difficulty": selected_difficulty
                     }
                 )
                 if response.ok:
-                    new_question = response.json()["question_text"]
+                    new_question = response.json()["question"]
                     st.session_state.current_question = new_question
                     st.session_state.messages.append({"role": "assistant", "content": new_question})
                     st.rerun()
+                elif response.status_code == 403:
+                    st.error("인증이 만료되었습니다. 다시 로그인합니다.")
+                    login()
+                    st.rerun()
+                else:
+                    st.error(f"새 질문 생성 실패: {response.text}")
         except Exception as e:
             st.error(f"오류: {e}")
 
@@ -330,4 +323,3 @@ if "messages" in st.session_state and st.session_state.messages:
         file_name="chat_history.json",
         mime="application/json"
     )
-

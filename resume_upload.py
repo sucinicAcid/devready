@@ -25,9 +25,10 @@ def resume_upload_component():
                 text += para.text + "\n"
         
         st.session_state.resume_text = text
+
         st.success("이력서가 성공적으로 업로드되었습니다!")
         
         with st.expander("📄 업로드된 이력서 보기", expanded=False):
-            st.write(st.session_state.resume_text[:1000] + ("..." if len(st.session_state.resume_text) > 1000 else ""))
+            st.write(st.session_state.resume_text[:2000] + ("..." if len(st.session_state.resume_text) > 2000 else ""))
     
     return text  # 필요한 경우에만 반환

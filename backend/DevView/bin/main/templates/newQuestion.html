@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Create Question</title>
+</head>
+<body>
+<h1>Create a new Question</h1>
+
+<!-- 질문 내용 입력 -->
+<label for="content">Question Content:</label><br/>
+<textarea id="content" rows="5" cols="50"></textarea>
+
+<br/><br/>
+
+<!-- 복수 Field 선택 -->
+<label for="fieldIds">Select Fields:</label><br/>
+<select id="fieldIds" multiple="multiple">
+    <!-- allFields: Field 리스트 -->
+    <option th:each="field : ${allFields}"
+            th:value="${field.id}"
+            th:text="${field.name}">
+    </option>
+</select>
+
+<br/><br/>
+
+<button type="button" onclick="createQuestion()">Create Question</button>
+
+<script>
+    async function createQuestion() {
+        const contentValue = document.getElementById('content').value;
+        const fieldSelect = document.getElementById('fieldIds');
+        const selectedFieldIds = [];
+
+        // (1) multiple select에서 선택된 field.id들을 가져오기
+        for (let i = 0; i < fieldSelect.options.length; i++) {
+            if (fieldSelect.options[i].selected) {
+                selectedFieldIds.push(Number(fieldSelect.options[i].value));
+            }
+        }
+
+        // (2) JSON DTO 생성
+        const requestData = {
+            content: contentValue,
+            fieldIds: selectedFieldIds
+        };
+
+        // (3) POST /api/v1/questions 요청
+        try {
+            const res = await fetch('/api/v1/questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: contentValue, field: selectedFieldIds })
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                alert(error.message || '질문 생성 실패');
+                return;
+            }
+
+            const { result } = await res.json();
+            alert('질문이 생성되었습니다.');
+            window.location.href = '/questions';
+
+        } catch (error) {
+            console.error(error);
+            alert("Failed to create question.");
+        }
+    }
+</script>
+</body>
+</html>

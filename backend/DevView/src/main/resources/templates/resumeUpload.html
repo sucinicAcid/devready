@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>이력서 업로드</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+        }
+        .main-content {
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 40px;
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        label {
+            font-weight: 500;
+            color: #333;
+        }
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #007aff;
+            box-shadow: 0 0 0 2px rgba(0,122,255,0.1);
+        }
+        .button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .submit-button {
+            background-color: #007aff;
+            color: white;
+        }
+        .submit-button:hover {
+            background-color: #0062cc;
+        }
+        .cancel-button {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .cancel-button:hover {
+            background-color: #e0e0e0;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 4px;
+            display: none;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+        .loading.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 추가 -->
+    <div th:replace="~{fragments/header :: header}"></div>
+
+    <div class="main-content">
+        <div class="container">
+            <h1>이력서 업로드</h1>
+            
+            <form id="resumeForm" class="upload-form" onsubmit="submitResume(event)">
+                <div class="form-group">
+                    <label for="resumeContent">이력서 내용을 입력해주세요</label>
+                    <textarea 
+                        id="resumeContent" 
+                        placeholder="이력서 내용을 입력해주세요. 프로젝트 경험, 기술 스택, 성과 등을 포함해주세요."
+                        required
+                        minlength="100"
+                        maxlength="10000"></textarea>
+                    <div id="errorMessage" class="error-message"></div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="cancel-button" onclick="location.href='/interview-mode'">취소</button>
+                    <button type="submit" class="submit-button">이력서 분석 시작</button>
+                </div>
+            </form>
+
+            <div id="loading" class="loading">
+                이력서를 분석하고 있습니다. 잠시만 기다려주세요...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function submitResume(event) {
+            event.preventDefault();
+            
+            const content = document.getElementById('resumeContent').value;
+            const errorMessage = document.getElementById('errorMessage');
+            const submitButton = document.querySelector('.submit-button');
+            const loading = document.getElementById('loading');
+            
+            // 입력 검증
+            if (content.length < 100) {
+                errorMessage.textContent = '이력서 내용은 최소 100자 이상이어야 합니다.';
+                errorMessage.style.display = 'block';
+                return;
+            }
+            
+            if (content.length > 10000) {
+                errorMessage.textContent = '이력서 내용은 최대 10,000자까지 입력 가능합니다.';
+                errorMessage.style.display = 'block';
+                return;
+            }
+            
+            // 버튼 비활성화 및 로딩 표시
+            submitButton.disabled = true;
+            errorMessage.style.display = 'none';
+            loading.classList.add('active');
+            
+            try {
+                // 1. 이력서 저장
+                const saveResponse = await fetch('/api/resumes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content })
+                });
+                
+                if (!saveResponse.ok) {
+                    throw new Error('이력서 업로드에 실패했습니다.');
+                }
+                
+                const { result } = await saveResponse.json();
+                const resumeId = result.data.id;
+
+                // 2. 태그 및 질문 생성 시작
+                const analyzeResponse = await fetch(`/api/resumes/${resumeId}/tags`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!analyzeResponse.ok) {
+                    throw new Error('태그 및 질문 생성에 실패했습니다.');
+                }
+
+                // 3. 생성 상태 확인 페이지로 이동
+                window.location.href = `/resume-interview/${resumeId}/generating`;
+                
+            } catch (error) {
+                errorMessage.textContent = error.message;
+                errorMessage.style.display = 'block';
+                loading.classList.remove('active');
+                submitButton.disabled = false;  // 에러 발생 시 버튼 다시 활성화
+            }
+        }
+    </script>
+</body>
+</html> 

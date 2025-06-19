@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>회원가입</title>
+    <script>
+        async function doJoin() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const joinDTO = {
+                username: username,
+                password: password
+            };
+
+            try {
+                const res = await fetch('/api/v1/join', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(joinDTO)
+                });
+
+                if (res.ok) {
+                    // 가입 성공
+                    const { result } = await res.json();
+                    alert("가입 성공! " + result.data.username + " 님 환영합니다.");
+                    window.location.href = '/login';
+                } else {
+                    const error = await res.json();
+                    alert(error.message || "서버 오류가 발생했습니다.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("회원가입 중 오류가 발생했습니다.");
+            }
+        }
+    </script>
+</head>
+<body>
+<h1>회원가입 페이지</h1>
+
+<form onsubmit="doJoin(); return false;">
+    <div>
+        <label for="username">아이디</label>
+        <input type="text" id="username" />
+    </div>
+    <div>
+        <label for="password">비밀번호</label>
+        <input type="password" id="password" />
+    </div>
+    <button type="submit">회원가입</button>
+</form>
+</body>
+</html>

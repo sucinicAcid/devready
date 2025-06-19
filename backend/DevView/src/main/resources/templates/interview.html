@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>이력서 기반 기술 면접</title>
+    <style>
+        .interview-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .question-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .tag-info {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .question-content {
+            font-size: 1.1em;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .next-button {
+            background: #2196F3;
+            color: white;
+        }
+        .next-button:hover {
+            background: #1976D2;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+            color: #666;
+        }
+        .error-message {
+            color: #f44336;
+            text-align: center;
+            padding: 20px;
+            display: none;
+            background: #ffebee;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .completion-message {
+            text-align: center;
+            padding: 40px 20px;
+            display: none;
+            color: #4CAF50;
+            font-size: 1.2em;
+            background: #e8f5e9;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .tag-keyword {
+            color: #1976D2;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+        .tag-detail {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .answer-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .answer-input {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+        .answer-input:focus {
+            outline: none;
+            border-color: #2196F3;
+            box-shadow: 0 0 0 2px rgba(33,150,243,0.1);
+        }
+        .chat-history {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .chat-message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .chat-message.question {
+            background: #e3f2fd;
+            margin-right: 20px;
+        }
+        .chat-message.answer {
+            background: #f5f5f5;
+            margin-left: 20px;
+        }
+        .chat-message.follow-up {
+            background: #e8f5e9;
+            margin-right: 20px;
+        }
+        .submit-button {
+            background: #4CAF50;
+            color: white;
+        }
+        .submit-button:hover {
+            background: #388E3C;
+        }
+        .submit-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="interview-container">
+        <h1>이력서 기반 기술 면접</h1>
+        
+        <div id="questionCard" class="question-card">
+            <div class="tag-info">
+                <div class="tag-keyword" id="tagKeyword"></div>
+                <div class="tag-detail" id="tagDetail"></div>
+            </div>
+            <div class="question-content">
+                <p id="questionText"></p>
+            </div>
+            
+            <div class="answer-section">
+                <div id="chatHistory" class="chat-history" style="display: none;">
+                    <!-- 대화 기록이 여기에 표시됩니다 -->
+                </div>
+                
+                <textarea id="answerInput" class="answer-input" 
+                    placeholder="답변을 입력해주세요. Shift + Enter로 줄바꿈이 가능합니다."
+                    style="display: none;"></textarea>
+                
+                <div class="button-group">
+                    <button id="submitAnswer" class="button submit-button" 
+                        onclick="submitAnswer()" style="display: none;">
+                        답변 제출
+                    </button>
+                    <button id="nextQuestion" class="button next-button" 
+                        onclick="getNextQuestion()" style="display: none;">
+                        다음 질문
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            다음 질문을 불러오는 중...
+        </div>
+
+        <div id="errorMessage" class="error-message">
+        </div>
+
+        <div id="completionMessage" class="completion-message">
+            <h2>🎉 모든 질문이 완료되었습니다!</h2>
+            <p>이력서 기반 기술 면접이 모두 종료되었습니다.</p>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        const resumeId = /*[[${resumeId}]]*/ 0;
+        const interviewId = /*[[${interviewId}]]*/ 0;
+        console.log('resumeId:', resumeId, 'interviewId:', interviewId);  // 디버깅용
+
+        let currentQuestionId = null;
+        let followUpCount = 0;
+        let currentAnswer = '';
+
+        async function getNextQuestion() {
+            showLoading();
+            hideError();
+            hideCompletion();
+            resetChatState();
+            
+            try {
+                // ResumeTagController의 API 사용
+                const response = await fetch(`/api/resumes/${resumeId}/next-question`);
+                console.log('API 응답 상태:', response.status);
+                
+                const responseData = await response.json();
+                console.log('API 응답 데이터:', responseData);
+                
+                if (!response.ok) {
+                    if (response.status === 404) {  // 400 -> 404로 변경
+                        showCompletion();
+                        return;
+                    }
+                    throw new Error('질문을 불러오는데 실패했습니다.');
+                }
+                
+                if (!responseData.result || !responseData.result.data) {
+                    throw new Error('서버 응답에 질문 데이터가 없습니다.');
+                }
+                
+                const questionData = responseData.result.data;
+                currentQuestionId = questionData.id;
+                console.log('현재 질문 ID:', currentQuestionId);
+                followUpCount = 0;
+                
+                displayQuestion(questionData);
+                showAnswerInput();
+            } catch (error) {
+                console.error('질문 로드 중 오류 발생:', error);
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayQuestion(data) {
+            console.log('표시할 질문 데이터:', data);
+            if (!data) {
+                console.log('질문 데이터가 없어 완료 메시지를 표시합니다.');
+                showCompletion();
+                return;
+            }
+            
+            const keyword = data.keyword || '';
+            const detail = data.detail || '';
+            const question = data.createdQuestion || '';
+            
+            document.getElementById('tagKeyword').textContent = keyword;
+            document.getElementById('tagDetail').textContent = detail;
+            document.getElementById('questionText').textContent = question;
+            
+            // 질문을 채팅 기록에 추가
+            addToChatHistory('question', question);
+        }
+
+        function showAnswerInput() {
+            document.getElementById('answerInput').style.display = 'block';
+            document.getElementById('submitAnswer').style.display = 'block';
+            document.getElementById('nextQuestion').style.display = 'none';
+            document.getElementById('chatHistory').style.display = 'block';
+            document.getElementById('answerInput').focus();
+        }
+
+        function resetChatState() {
+            document.getElementById('chatHistory').innerHTML = '';
+            document.getElementById('answerInput').value = '';
+            currentAnswer = '';
+            followUpCount = 0;
+        }
+
+        async function submitAnswer() {
+            const answerInput = document.getElementById('answerInput');
+            const answer = answerInput.value.trim();
+            
+            if (!answer) {
+                showError('답변을 입력해주세요.');
+                return;
+            }
+
+            if (!currentQuestionId) {
+                console.error('현재 질문 ID가 없습니다:', currentQuestionId);
+                showError('질문 ID를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                return;
+            }
+            
+            currentAnswer = answer;
+            addToChatHistory('answer', answer);
+            
+            try {
+                showLoading();
+                
+                // ResumeController의 follow-up API 사용
+                const response = await fetch(`/api/resumes/${resumeId}/follow-up`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: answer })
+                });
+
+                if (!response.ok) {
+                    throw new Error('답변 제출에 실패했습니다.');
+                }
+
+                const responseData = await response.json();
+                console.log('답변 제출 응답:', responseData);
+
+                if (responseData.result.data.followUp) {
+                    followUpCount++;
+                    addToChatHistory('follow-up', responseData.result.data.followUp);
+                    
+                    if (followUpCount >= 2) {
+                        // 꼬리 질문이 2번 완료되면 현재 질문 완료 처리
+                        await markQuestionAsCompleted();
+                        // 다음 질문 버튼 표시
+                        document.getElementById('submitAnswer').style.display = 'none';
+                        document.getElementById('nextQuestion').style.display = 'block';
+                    } else {
+                        // 다음 꼬리 질문을 위한 입력 준비
+                        answerInput.value = '';
+                        answerInput.focus();
+                    }
+                } else {
+                    // 꼬리 질문이 없는 경우 현재 질문 완료 처리
+                    await markQuestionAsCompleted();
+                    // 다음 질문으로
+                    document.getElementById('submitAnswer').style.display = 'none';
+                    document.getElementById('nextQuestion').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('답변 제출 중 오류:', error);
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 질문 완료 처리 함수 추가
+        async function markQuestionAsCompleted() {
+            if (!currentQuestionId) return;
+            
+            try {
+                const response = await fetch(`/api/resumes/${resumeId}/questions/${currentQuestionId}/complete`, {
+                    method: 'PATCH'
+                });
+                
+                if (!response.ok) {
+                    console.error('질문 완료 처리 실패:', response.status);
+                }
+            } catch (error) {
+                console.error('질문 완료 처리 중 오류:', error);
+            }
+        }
+
+        function addToChatHistory(type, content) {
+            const chatHistory = document.getElementById('chatHistory');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${type}`;
+            messageDiv.textContent = content;
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        // 답변 입력 시 Shift + Enter로 줄바꿈
+        document.getElementById('answerInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitAnswer();
+            }
+        });
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        function showCompletion() {
+            document.getElementById('completionMessage').style.display = 'block';
+            document.getElementById('questionCard').style.display = 'none';
+        }
+
+        function hideCompletion() {
+            document.getElementById('completionMessage').style.display = 'none';
+            document.getElementById('questionCard').style.display = 'block';
+        }
+
+        // 페이지 로드 시 첫 질문 가져오기
+        window.onload = getNextQuestion;
+    </script>
+</body>
+</html> 

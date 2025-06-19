@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8"/>
+    <title>이력서 태그 생성</title>
+    <style>
+        .tag-container {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .tag {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 15px;
+            background-color: #f0f0f0;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .tag.selected {
+            background-color: #007bff;
+            color: white;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .error {
+            color: red;
+            margin: 10px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>이력서 태그 생성</h1>
+    
+    <div class="tag-container">
+        <h2>생성된 태그</h2>
+        <div id="tags" class="tags">
+            <div class="loading">태그를 생성하는 중입니다...</div>
+            <div class="error"></div>
+        </div>
+    </div>
+
+    <button id="generateQuestions" style="display: none;">선택한 태그로 질문 생성하기</button>
+
+    <script th:inline="javascript">
+        const resumeId = /*[[${resumeId}]]*/ null;
+        const resume = /*[[${resume}]]*/ null;
+        
+        // 태그 로딩
+        async function loadTags() {
+            const tagsDiv = document.getElementById('tags');
+            const loadingDiv = tagsDiv.querySelector('.loading');
+            const errorDiv = tagsDiv.querySelector('.error');
+            
+            loadingDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/resumes/${resumeId}/tags`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('태그 생성에 실패했습니다.');
+                }
+                
+                const result = await response.json();
+                if (result.success) {
+                    const tags = result.result.data.keywords;
+                    displayTags(tags);
+                    document.getElementById('generateQuestions').style.display = 'block';
+                } else {
+                    throw new Error(result.message || '태그 생성에 실패했습니다.');
+                }
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        // 태그 표시
+        function displayTags(tags) {
+            const tagsDiv = document.getElementById('tags');
+            tagsDiv.innerHTML = tags.map(tag => `
+                <div class="tag" data-tag-type="${tag.tagType}" data-keyword="${tag.keyword}">
+                    ${tag.keyword}
+                    <small>(${tag.tagType})</small>
+                </div>
+            `).join('');
+            
+            // 태그 클릭 이벤트
+            document.querySelectorAll('.tag').forEach(tag => {
+                tag.addEventListener('click', () => {
+                    tag.classList.toggle('selected');
+                });
+            });
+        }
+
+        // 질문 생성
+        async function generateQuestions() {
+            const selectedTags = Array.from(document.querySelectorAll('.tag.selected'))
+                .map(tag => ({
+                    tagType: tag.dataset.tagType,
+                    keyword: tag.dataset.keyword
+                }));
+            
+            if (selectedTags.length === 0) {
+                alert('최소 하나 이상의 태그를 선택해주세요.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/resumes/${resumeId}/questions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ tags: selectedTags })
+                });
+
+                if (!response.ok) {
+                    throw new Error('질문 생성에 실패했습니다.');
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    window.location.href = `/resume-interview/${resumeId}/interview`;
+                } else {
+                    throw new Error(result.message || '질문 생성에 실패했습니다.');
+                }
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // 이벤트 리스너 등록
+        document.getElementById('generateQuestions').addEventListener('click', generateQuestions);
+
+        // 페이지 로드 시 태그 생성 시작
+        window.onload = loadTags;
+    </script>
+</body>
+</html> 

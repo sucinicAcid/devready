@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>이력서 상세</title>
+    <style>
+        .resume-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .resume-content {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .start-button {
+            background: #2196F3;
+            color: white;
+        }
+        .start-button:hover {
+            background: #1976D2;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+            color: #666;
+        }
+        .error-message {
+            color: #f44336;
+            text-align: center;
+            padding: 20px;
+            display: none;
+            background: #ffebee;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="resume-container">
+        <h1>이력서 상세</h1>
+        
+        <div class="resume-content" th:text="${resume.content}">
+        </div>
+
+        <div class="button-group">
+            <button class="button start-button" onclick="startInterview()">면접 시작하기</button>
+        </div>
+
+        <div id="loading" class="loading">
+            태그와 질문을 생성하는 중...
+        </div>
+
+        <div id="errorMessage" class="error-message">
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        const resumeId = /*[[${resume.id}]]*/ null;
+
+        async function startInterview() {
+            showLoading();
+            hideError();
+            
+            try {
+                const response = await fetch(`/resume-interview/analyze`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: document.querySelector('.resume-content').textContent
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('이력서 분석에 실패했습니다.');
+                }
+
+                const data = await response.json();
+                // 생성이 시작되면 generating 페이지로 이동
+                window.location.href = `/resume-interview/${data.resumeId}/generating`;
+            } catch (error) {
+                showError(error.message);
+                hideLoading();
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html> 
